@@ -1,3 +1,6 @@
+#!/usr/bin/python3
+# encoding=utf-8
+
 from lxml import html
 import requests
 from pymongo import MongoClient
@@ -10,39 +13,52 @@ Releases_col = client.LineageReleases.releases
 Log_col = client.LineageReleases.log
 
 
-def get_device_dates(device_name):
-    page_device = requests.get("https://download.lineageos.org" + device_name)
-    tree_device = html.fromstring(page_device.content)
-    dates_device = tree_device.xpath("//table/tbody/tr/td[4]/text()")
-    return dates_device
+def get_device_properties(device_name):
+    device_properties = {}
+    page = requests.get("https://download.lineageos.org" + device_name)
+    tree = html.fromstring(page.content)
+    device_properties['dates'] = tree.xpath("//table/tbody/tr/td[4]/text()")
+    device_properties['links'] = tree.xpath("//table/tbody/tr/td[3]/a/@href")
+    device_properties['md5sums'] = tree.xpath("//table/tbody/tr/td[3]/small/text()")
+    device_properties['versions'] = tree.xpath("//table/tbody/tr/td[2]/text()")
+    device_properties['types'] = tree.xpath("//table/tbody/tr/td[1]/text()")
+    device_properties['changelogs'] = tree.xpath("//table/tbody/tr/td[5]/a/@href")
+    return device_properties
 
 
-def get_devices(address="https://download.lineageos.org/", device_xpath="//ul/li/div/ul/li/a/@href"):
+def get_devicenames(address="https://download.lineageos.org/", device_xpath="//ul/li/div/ul/li/a/@href"):
     page = requests.get(address)
     tree = html.fromstring(page.content)
     devicenames = tree.xpath(device_xpath)
     return devicenames
 
 
-def updatesert_device(device, dates_s):
+def updatesert_device(device, device_properties):
     name = device[1:]
     requests = []
-    for date_s in dates_s:
+    for i in range(len(device_properties['dates'])):
         device_ob = {}
         device_ob['device'] = name
-        device_ob['released'] = datetime.strptime(date_s, '%Y-%m-%d %H:%M:%S ')
+        device_ob['released'] = datetime.strptime(device_properties['dates'][i], '%Y-%m-%d %H:%M:%S ')
+        device_ob['link'] = device_properties['links'][i]
+        device_ob['md5sum'] = device_properties['md5sums'][i]
+        device_ob['version'] = device_properties['versions'][i]
+        device_ob['type'] = device_properties['types'][i]
+        device_ob['changelog_link'] = device_properties['changelogs'][i]
+
         requests.append(ReplaceOne(device_ob, device_ob, upsert=True))
     result = Releases_col.bulk_write(requests)
     return result
 
 
 def update_all_devices():
-    devices = get_devices()
+    devicenames = get_devicenames()
     logs = {}
-    for device in devices:
-        dates = get_device_dates(device)
-        result = updatesert_device(device, dates)
-        logs[device] = {'date': datetime.now(), 'inserted': result.inserted_count, 'modified': result.modified_count, 'deleted': result.deleted_count}
+    for devicename in devicenames:
+        device_properties = get_device_properties(devicename)
+        # print(device_properties)
+        result = updatesert_device(devicename, device_properties)
+        logs[devicename] = {'date': datetime.now(), 'inserted': result.inserted_count, 'modified': result.modified_count, 'deleted': result.deleted_count}
     Log_col.insert_one(logs)
 
 if __name__ == "__main__":
