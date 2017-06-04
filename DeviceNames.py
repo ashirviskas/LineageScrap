@@ -45,7 +45,6 @@ def updatesert_device(device, device_properties):
         device_ob['version'] = device_properties['versions'][i]
         device_ob['type'] = device_properties['types'][i]
         device_ob['changelog_link'] = device_properties['changelogs'][i]
-
         requests.append(ReplaceOne(device_ob, device_ob, upsert=True))
     result = Releases_col.bulk_write(requests)
     return result
