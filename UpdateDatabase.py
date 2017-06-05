@@ -57,9 +57,9 @@ def update_all_devices():
         device_properties = get_device_properties(devicename)
         # print(device_properties)
         result = updatesert_device(devicename, device_properties)
-        logs[devicename[1:]] = {'date': datetime.now(), 'inserted': result.inserted_count,
-                                'modified': result.modified_count, 'deleted': result.deleted_count,
-                                'upserted': result.upserted_count}
+        Log_col.insert_one({'device': devicename[1:], 'date': datetime.now(), 'inserted': result.inserted_count,
+                            'modified': result.modified_count, 'deleted': result.deleted_count,
+                            'upserted': result.upserted_count})
     Log_col.insert_one(logs)
 
 if __name__ == "__main__":
