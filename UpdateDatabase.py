@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 # encoding=utf-8
 
-from lxml import html
 import requests
-from pymongo import MongoClient
-from pymongo import ReplaceOne
+from lxml import html
+from pymongo import MongoClient, ReplaceOne
 from datetime import datetime
+from pprint import pprint
 
 uri = open("database.config", "r").readline()
 client = MongoClient("localhost")
@@ -35,7 +35,7 @@ def get_devicenames(address="https://download.lineageos.org/", device_xpath="//u
 
 def updatesert_device(device, device_properties):
     name = device[1:]
-    requests = []
+    replace_requests = []
     for i in range(len(device_properties['dates'])):
         device_ob = {}
         device_ob['device'] = name
@@ -45,8 +45,8 @@ def updatesert_device(device, device_properties):
         device_ob['version'] = device_properties['versions'][i]
         device_ob['type'] = device_properties['types'][i]
         device_ob['changelog_link'] = device_properties['changelogs'][i]
-        requests.append(ReplaceOne(device_ob, device_ob, upsert=True))
-    result = Releases_col.bulk_write(requests)
+        replace_requests.append(ReplaceOne(device_ob, device_ob, upsert=True))
+    result = Releases_col.bulk_write(replace_requests)
     return result
 
 
@@ -57,7 +57,9 @@ def update_all_devices():
         device_properties = get_device_properties(devicename)
         # print(device_properties)
         result = updatesert_device(devicename, device_properties)
-        logs[devicename] = {'date': datetime.now(), 'inserted': result.inserted_count, 'modified': result.modified_count, 'deleted': result.deleted_count}
+        logs[devicename[1:]] = {'date': datetime.now(), 'inserted': result.inserted_count,
+                                'modified': result.modified_count, 'deleted': result.deleted_count,
+                                'upserted': result.upserted_count}
     Log_col.insert_one(logs)
 
 if __name__ == "__main__":
